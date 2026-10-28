@@ -383,8 +383,8 @@ msgstr "Двоичния файл на посредника не е открит
 
 #: src/View/Gtk/Main.hpp:551
 msgid ""
-"You will see all entries (uncustomized) when you run grub. This error accurs "
-"(in most cases), when you didn't install grub gustomizer currectly."
+"You will see all entries (uncustomized) when you run grub. This error occurs "
+"(in most cases), when you didn't install grub customizer correctly."
 msgstr ""
 "Когато пуснете grub ще видите всички записи (непроменени). Тази грешка се "
 "получава (в повечето случаи), когато не сте инсталирали правилно grub "

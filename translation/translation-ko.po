@@ -381,8 +381,8 @@ msgstr "프락시 바이너리를 찾지 못했습니다!"
 
 #: src/View/Gtk/Main.hpp:551
 msgid ""
-"You will see all entries (uncustomized) when you run grub. This error accurs "
-"(in most cases), when you didn't install grub gustomizer currectly."
+"You will see all entries (uncustomized) when you run grub. This error occurs "
+"(in most cases), when you didn't install grub customizer correctly."
 msgstr ""
 "당신이 grub을 실행하실 때 모든 항목(사용자 설정이 되지 않은)을 볼 것입니다. 이 오류는 당신이 grub 커스터마이저를 올바르게 "
 "설치하지 않을 때, 발생합니다."

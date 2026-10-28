@@ -167,7 +167,7 @@ public:
 	}
 
 	/**
-	 * grub-mkconfig also reads /etc/default/grub.d/*.cfg after /etc/default/grub.
+	 * grub-mkconfig also reads the .cfg files in /etc/default/grub.d after /etc/default/grub.
 	 * Returns the settings (name => file) which are assigned there and therefore
 	 * override the values in /etc/default/grub. Settings which only extend
 	 * the existing value (like X="$X foo") are ignored.

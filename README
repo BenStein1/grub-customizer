@@ -62,3 +62,6 @@ OUTPUT_FILE=/boot/grub2/grub.cfg
 SETTINGS_FILE=/etc/default/grub
 DEVICEMAP_FILE="/boot/grub2/device.map"
 MKDEVICEMAP_CMD="grub2-mkdevicemap --device-map=/dev/stdout"
+# Known limitations
+
+When Grub Customizer reorders or customizes the entries of a script from /etc/grub.d (for example 10_linux), it moves that script (into /etc/grub.d/proxifiedScripts or to a new number). Package managers don't update moved configuration files, so after a GRUB upgrade (like a distribution release upgrade) the moved copy keeps the old version. If boot entries look wrong after an upgrade, revert the customizations of that script in Grub Customizer, save, upgrade GRUB again (or reinstall the package that ships the script) and redo the customizations.

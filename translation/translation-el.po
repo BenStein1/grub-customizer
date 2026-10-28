@@ -395,8 +395,8 @@ msgstr "Δεν βρέθηκε proxy binary!"
 
 #: src/View/Gtk/Main.hpp:551
 msgid ""
-"You will see all entries (uncustomized) when you run grub. This error accurs "
-"(in most cases), when you didn't install grub gustomizer currectly."
+"You will see all entries (uncustomized) when you run grub. This error occurs "
+"(in most cases), when you didn't install grub customizer correctly."
 msgstr ""
 "Βλέπετε όλες τις καταχωρήσεις (χωρίς διαμόρφωση) όταν εκτελείτε το grub. "
 "Αυτό το σφάλμα συμβαίνει (στις περισσότερες περιπτώσεις), όταν δεν έχετε "

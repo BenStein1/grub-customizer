@@ -388,8 +388,8 @@ msgstr "Binääristä Proxya ei löydy !"
 
 #: src/View/Gtk/Main.hpp:551
 msgid ""
-"You will see all entries (uncustomized) when you run grub. This error accurs "
-"(in most cases), when you didn't install grub gustomizer currectly."
+"You will see all entries (uncustomized) when you run grub. This error occurs "
+"(in most cases), when you didn't install grub customizer correctly."
 msgstr ""
 "Näet kaikki käynnistysvaihtoehdot (muokkaamattomat), kun suoritat grubia. "
 "Tämä virhe ilmenee (useinmiten), jos et ole asentanut grub customizer:ia "

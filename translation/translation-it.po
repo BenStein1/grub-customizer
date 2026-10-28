@@ -391,8 +391,8 @@ msgstr "Proxy binario non trovato!"
 
 #: src/View/Gtk/Main.hpp:551
 msgid ""
-"You will see all entries (uncustomized) when you run grub. This error accurs "
-"(in most cases), when you didn't install grub gustomizer currectly."
+"You will see all entries (uncustomized) when you run grub. This error occurs "
+"(in most cases), when you didn't install grub customizer correctly."
 msgstr ""
 "Quando avvierai GRUB vedrai tutte le voci (non personalizzate). Questo "
 "errore si verifica (nella maggior parte dei casi) quando non hai installato "

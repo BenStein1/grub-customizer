@@ -260,8 +260,8 @@ class View_Gtk_Theme :
 		toolbar.add(tbttAdd);
 		toolbar.add(tbttRemove);
 
-		hpThemeEditor.pack1(vbFiles, Gtk::FILL);
-		hpThemeEditor.pack2(vbEdit, Gtk::FILL, Gtk::EXPAND);
+		hpThemeEditor.pack1(vbFiles, true, true);
+		hpThemeEditor.pack2(vbEdit, true, true);
 
 		vbFiles.pack_start(scrFiles);
 		vbFiles.pack_start(toolbar, Gtk::PACK_SHRINK);
@@ -281,8 +281,8 @@ class View_Gtk_Theme :
 		sizeGroupFooter->add_widget(toolbar);
 		sizeGroupFooter->add_widget(hbFileSelection);
 
-		hpCustomTheme.pack1(frmCustomThemeSettings, Gtk::FILL);
-		hpCustomTheme.pack2(frmCustomThemePreview, Gtk::FILL, Gtk::EXPAND);
+		hpCustomTheme.pack1(frmCustomThemeSettings, true, true);
+		hpCustomTheme.pack2(frmCustomThemePreview, true, true);
 		hpCustomTheme.set_position(200);
 
 		frmCustomThemeSettings.add(vbCustomThemeSettings);

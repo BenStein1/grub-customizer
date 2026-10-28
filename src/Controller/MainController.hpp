@@ -335,7 +335,7 @@ class MainController :
 
 				try {
 					this->view->setOptions(this->env->loadViewOptions());
-				} catch (FileReadException e) {
+				} catch (FileReadException const& e) {
 					this->log("view options not found", Logger::INFO);
 				}
 				this->applicationObject->viewOptions = this->view->getOptions();
@@ -985,7 +985,7 @@ class MainController :
 			try {
 				this->applicationObject->viewOptions = this->view->getOptions();
 				this->env->saveViewOptions(this->view->getOptions());
-			} catch (FileSaveException e) {
+			} catch (FileSaveException const& e) {
 				this->log("option saving failed", Logger::ERROR);
 			}
 			this->applicationObject->onListModelChange.exec();

@@ -475,22 +475,19 @@ class Model_ListCfg :
 			if (proxyBinSource){
 				FILE* proxyBinTarget = fopen((this->env->cfg_dir+"/bin/grubcfg_proxy").c_str(), "w");
 				if (proxyBinTarget){
-					int c;
-					fputs(
+					// also look at the usual install locations: the prefix may change
+					// (source install in /usr/local vs. distribution package in /usr)
+					std::string shim =
 						"#!/bin/sh\n"
-						"if [ -e ",
-						proxyBinTarget
-					);
-					fputs(LIBDIR, proxyBinTarget);
-					fputs("/grubcfg-proxy ] ; then\n"
-						"    cat | ", proxyBinTarget);
-					fputs(LIBDIR, proxyBinTarget);
-					fputs("/grubcfg-proxy \"$@\"\n"
-						"else\n"
-						"    cat\n"
-						"fi\n",
-						proxyBinTarget
-					);
+						"for proxy in " + Helper::shellQuote(std::string(LIBDIR) + "/grubcfg-proxy") + " /usr/lib/grub-customizer/grubcfg-proxy /usr/local/lib/grub-customizer/grubcfg-proxy ; do\n"
+						"    if [ -x \"$proxy\" ] ; then\n"
+						"        cat | \"$proxy\" \"$@\"\n"
+						"        exit $?\n"
+						"    fi\n"
+						"done\n"
+						"echo \"grub-customizer: grubcfg-proxy not found, menu entries are not customized\" >&2\n"
+						"cat\n";
+					fputs(shim.c_str(), proxyBinTarget);
 					fclose(proxyBinTarget);
 					chmod((this->env->cfg_dir+"/bin/grubcfg_proxy").c_str(), 0755);
 				} else {
@@ -1054,6 +1051,8 @@ class Model_ListCfg :
 						case Model_Entry::SUBMENU:
 							ruleType = Model_Rule::OTHER_ENTRIES_PLACEHOLDER;
 							break;
+						case Model_Entry::SCRIPT_ROOT:
+							break; // script roots are never sub entries
 						}
 						auto newRule = std::make_shared<Model_Rule>(ruleType, std::list<std::string>(), entry->name, true);
 						newRule->dataSource = entry;
