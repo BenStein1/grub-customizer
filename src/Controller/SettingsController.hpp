@@ -250,12 +250,19 @@ class SettingsController :
 	{
 		this->logActionBegin("update-show-menu-setting");
 		try {
-			std::string val = this->settings->getValue("GRUB_HIDDEN_TIMEOUT");
-			if (val == "" || val.find_first_not_of("0123456789") != -1) {
-				this->settings->setValue("GRUB_HIDDEN_TIMEOUT", "0"); //create this entry - if it has an invalid value
+			this->migrateHiddenTimeout();
+			bool showMenu = this->view->getShowMenuCheckboxState();
+			// GRUB_TIMEOUT_STYLE replaces GRUB_HIDDEN_TIMEOUT since GRUB 2.02
+			this->settings->setValue("GRUB_TIMEOUT_STYLE", showMenu ? "menu" : "hidden");
+			this->settings->setIsActive("GRUB_TIMEOUT_STYLE", true);
+			if (showMenu && this->settings->getValue("GRUB_TIMEOUT") == "0") {
+				// a visible menu with a timeout of 0 seconds would boot immediately (default on Ubuntu)
+				this->settings->setValue("GRUB_TIMEOUT", "10");
+				this->settings->setIsActive("GRUB_TIMEOUT", true);
+				this->view->setTimeoutValue(10);
+				this->view->setTimeoutActive(true);
 			}
-			this->settings->setIsActive("GRUB_HIDDEN_TIMEOUT", !this->view->getShowMenuCheckboxState());
-			if (!this->view->getShowMenuCheckboxState() && this->view->getOsProberCheckboxState()){
+			if (!showMenu && this->view->getOsProberCheckboxState()){
 				this->view->showHiddenMenuOsProberConflictMessage();
 			}
 			this->syncSettings();
@@ -270,8 +277,9 @@ class SettingsController :
 	{
 		this->logActionBegin("update-os-prober-setting");
 		try {
+			// since GRUB 2.06 os-prober is disabled unless GRUB_DISABLE_OS_PROBER=false is set explicitly
 			this->settings->setValue("GRUB_DISABLE_OS_PROBER", this->view->getOsProberCheckboxState() ? "false" : "true");
-			this->settings->setIsActive("GRUB_DISABLE_OS_PROBER", !this->view->getOsProberCheckboxState());
+			this->settings->setIsActive("GRUB_DISABLE_OS_PROBER", true);
 			this->syncSettings();
 			this->env->modificationsUnsaved = true;
 		} catch (Exception const& e) {
@@ -284,23 +292,50 @@ class SettingsController :
 	{
 		this->logActionBegin("update-timeout-setting");
 		try {
+			this->migrateHiddenTimeout();
 			std::string timeoutValue = this->view->getTimeoutValueString();
 			if (!this->view->getTimeoutActive() && timeoutValue != "-1") {
 				timeoutValue = "-1";
 			}
-	
-			if (this->view->getShowMenuCheckboxState()){
-				this->settings->setValue("GRUB_TIMEOUT", timeoutValue);
-			}
-			else {
-				this->settings->setValue("GRUB_HIDDEN_TIMEOUT", this->view->getTimeoutValueString());
-			}
+			this->settings->setValue("GRUB_TIMEOUT", timeoutValue);
+			this->settings->setIsActive("GRUB_TIMEOUT", true);
 			this->syncSettings();
 			this->env->modificationsUnsaved = true;
 		} catch (Exception const& e) {
 			this->applicationObject->onError.exec(e);
 		}
 		this->logActionEnd();
+	}
+
+	/**
+	 * GRUB_HIDDEN_TIMEOUT is deprecated. Convert it to GRUB_TIMEOUT_STYLE + GRUB_TIMEOUT
+	 * before changing the menu visibility or the timeout.
+	 */
+	private: void migrateHiddenTimeout()
+	{
+		if (!this->settings->isActive("GRUB_HIDDEN_TIMEOUT")) {
+			return;
+		}
+		std::string hiddenTimeout = this->settings->getValue("GRUB_HIDDEN_TIMEOUT");
+		this->settings->setIsActive("GRUB_HIDDEN_TIMEOUT", false);
+		if (this->settings->isActive("GRUB_TIMEOUT_STYLE")) {
+			return; // GRUB_TIMEOUT_STYLE takes precedence anyway
+		}
+		this->settings->setValue("GRUB_TIMEOUT_STYLE", "hidden");
+		this->settings->setIsActive("GRUB_TIMEOUT_STYLE", true);
+		if (hiddenTimeout != "" && hiddenTimeout.find_first_not_of("0123456789") == std::string::npos) {
+			this->settings->setValue("GRUB_TIMEOUT", hiddenTimeout);
+			this->settings->setIsActive("GRUB_TIMEOUT", true);
+		}
+	}
+
+	private: bool isMenuHidden()
+	{
+		if (this->settings->isActive("GRUB_TIMEOUT_STYLE")) {
+			std::string style = this->settings->getValue("GRUB_TIMEOUT_STYLE");
+			return style == "hidden" || style == "countdown";
+		}
+		return this->settings->isActive("GRUB_HIDDEN_TIMEOUT", true);
 	}
 
 	public: void updateKernelParamsAction()
@@ -423,11 +458,14 @@ class SettingsController :
 			this->view->setDefEntry(defEntry);
 		}
 
-		this->view->setShowMenuCheckboxState(!this->settings->isActive("GRUB_HIDDEN_TIMEOUT", true));
-		this->view->setOsProberCheckboxState(!this->settings->isActive("GRUB_DISABLE_OS_PROBER", true));
+		this->view->setShowMenuCheckboxState(!this->isMenuHidden());
+		// GRUB >= 2.06 only runs os-prober when GRUB_DISABLE_OS_PROBER=false is set
+		this->view->setOsProberCheckboxState(
+			this->settings->isActive("GRUB_DISABLE_OS_PROBER") && this->settings->getValue("GRUB_DISABLE_OS_PROBER") == "false"
+		);
 
 		std::string timeoutStr;
-		if (this->view->getShowMenuCheckboxState())
+		if (this->settings->isActive("GRUB_TIMEOUT_STYLE") || !this->settings->isActive("GRUB_HIDDEN_TIMEOUT", true))
 			timeoutStr = this->settings->getValue("GRUB_TIMEOUT");
 		else
 			timeoutStr = this->settings->getValue("GRUB_HIDDEN_TIMEOUT");
