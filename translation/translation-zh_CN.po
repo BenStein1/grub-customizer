@@ -381,8 +381,8 @@ msgstr "二进制代理未找到！"
 
 #: src/View/Gtk/Main.hpp:551
 msgid ""
-"You will see all entries (uncustomized) when you run grub. This error accurs "
-"(in most cases), when you didn't install grub gustomizer currectly."
+"You will see all entries (uncustomized) when you run grub. This error occurs "
+"(in most cases), when you didn't install grub customizer correctly."
 msgstr "在运行 Grub 时会看到全部项目(未自定义)。如果没有正确安装 Grub customizer ， (在大多数情况下)会出现这个错误。"
 
 #: src/View/Gtk/Main.hpp:558

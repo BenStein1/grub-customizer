@@ -390,8 +390,8 @@ msgstr "Proxy-binär hittades inte!"
 
 #: src/View/Gtk/Main.hpp:551
 msgid ""
-"You will see all entries (uncustomized) when you run grub. This error accurs "
-"(in most cases), when you didn't install grub gustomizer currectly."
+"You will see all entries (uncustomized) when you run grub. This error occurs "
+"(in most cases), when you didn't install grub customizer correctly."
 msgstr ""
 "Du kommer att se alla poster (ej anpassade) när grub körs. Detta fel "
 "framträder (i de flesta fall) när Grub Customizer inte installerats korrekt."

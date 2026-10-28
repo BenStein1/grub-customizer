@@ -387,8 +387,8 @@ msgstr "Бінарний код проксі-сервера не знайден�
 
 #: src/View/Gtk/Main.hpp:551
 msgid ""
-"You will see all entries (uncustomized) when you run grub. This error accurs "
-"(in most cases), when you didn't install grub gustomizer currectly."
+"You will see all entries (uncustomized) when you run grub. This error occurs "
+"(in most cases), when you didn't install grub customizer correctly."
 msgstr ""
 "Вам будуть видимі всі записи (неналаштовані) під час виконання grub. Ця "
 "помилка виникає (у більшості випадків), якщо grub gustomizer не було "

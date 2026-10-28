@@ -388,8 +388,8 @@ msgstr "Spustitelný soubor proxy nenalezen!"
 
 #: src/View/Gtk/Main.hpp:551
 msgid ""
-"You will see all entries (uncustomized) when you run grub. This error accurs "
-"(in most cases), when you didn't install grub gustomizer currectly."
+"You will see all entries (uncustomized) when you run grub. This error occurs "
+"(in most cases), when you didn't install grub customizer correctly."
 msgstr ""
 "Když spustíte grub, uvidíte všechny záznamy (nepřizpůsobené). Tato chyba se "
 "(většinou) objeví, pokud jste správně nenainstalovali Grub Customizer."

@@ -389,8 +389,8 @@ msgstr "Proxy binaran nije pronađen!"
 
 #: src/View/Gtk/Main.hpp:551
 msgid ""
-"You will see all entries (uncustomized) when you run grub. This error accurs "
-"(in most cases), when you didn't install grub gustomizer currectly."
+"You will see all entries (uncustomized) when you run grub. This error occurs "
+"(in most cases), when you didn't install grub customizer correctly."
 msgstr ""
 "Vidjet ćete sve unose (neprilagođene) kada pokrenete Grub. Ova greška "
 "nastaje (u većini slučaja), kada Grub prilagoditelj nije ispravno instaliran."

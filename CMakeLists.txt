@@ -1,9 +1,13 @@
-project(GrubCustomizer)
-cmake_minimum_required(VERSION 2.6.2) # may be lower
+cmake_minimum_required(VERSION 3.14...3.31)
+project(GrubCustomizer CXX)
 
-ADD_DEFINITIONS(-std=c++11)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+include(CheckPIESupported)
+check_pie_supported()
 
 find_package(PkgConfig)
 
@@ -34,7 +38,7 @@ endif()
 
 if ( ERROR_LOG_FILE )
 else()
-set ( ERROR_LOG_FILE /tmp/grub-customizer_mkconfig_output.log )
+set ( ERROR_LOG_FILE /run/grub-customizer/mkconfig_output.log )
 endif()
 
 
@@ -235,6 +239,12 @@ install(FILES misc/icons/32x32.svg DESTINATION /usr/share/icons/hicolor/32x32/ap
 install(FILES misc/icons/48x48.svg DESTINATION /usr/share/icons/hicolor/48x48/apps RENAME grub-customizer.svg)
 install(FILES misc/icons/64x64.svg DESTINATION /usr/share/icons/hicolor/64x64/apps RENAME grub-customizer.svg)
 install(FILES misc/icons/128x128.svg DESTINATION /usr/share/icons/hicolor/128x128/apps RENAME grub-customizer.svg)
+
+
+# tests
+enable_testing()
+add_test(NAME proxy-keeps-shell-blocks
+	COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/proxy-keeps-shell-blocks.sh $<TARGET_FILE:grubcfg-proxy> ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures)
 
 
 # uninstall target

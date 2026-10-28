@@ -1,0 +1,11 @@
+if [ "${grub_platform}" = "efi" ]; then
+menuentry 'Memory test (memtest86+x64.efi)' --class memtest $menuentry_id_option 'memtest86+' {
+	insmod part_gpt
+	linux /boot/memtest86+x64.efi
+}
+fi
+if [ "${grub_platform}" = "pc" ]; then
+menuentry 'Memory test (memtest86+x64.bin)' --class memtest $menuentry_id_option 'memtest86+' {
+	linux /boot/memtest86+x64.bin
+}
+fi

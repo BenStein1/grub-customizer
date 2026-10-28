@@ -283,7 +283,8 @@ class Model_ListCfg :
 	
 		//run mkconfig
 		this->log("running " + this->env->mkconfig_cmd, Logger::EVENT);
-		FILE* mkconfigProc = popen((this->env->mkconfig_cmd + " 2> " + this->errorLogFile).c_str(), "r");
+		Helper::createPrivateParentDir(this->errorLogFile);
+		FILE* mkconfigProc = popen((this->env->mkconfig_cmd + " 2> " + Helper::shellQuote(this->errorLogFile)).c_str(), "r");
 		readGeneratedFile(mkconfigProc);
 		
 		int success = pclose(mkconfigProc);
@@ -474,22 +475,19 @@ class Model_ListCfg :
 			if (proxyBinSource){
 				FILE* proxyBinTarget = fopen((this->env->cfg_dir+"/bin/grubcfg_proxy").c_str(), "w");
 				if (proxyBinTarget){
-					int c;
-					fputs(
+					// also look at the usual install locations: the prefix may change
+					// (source install in /usr/local vs. distribution package in /usr)
+					std::string shim =
 						"#!/bin/sh\n"
-						"if [ -e ",
-						proxyBinTarget
-					);
-					fputs(LIBDIR, proxyBinTarget);
-					fputs("/grubcfg-proxy ] ; then\n"
-						"    cat | ", proxyBinTarget);
-					fputs(LIBDIR, proxyBinTarget);
-					fputs("/grubcfg-proxy \"$@\"\n"
-						"else\n"
-						"    cat\n"
-						"fi\n",
-						proxyBinTarget
-					);
+						"for proxy in " + Helper::shellQuote(std::string(LIBDIR) + "/grubcfg-proxy") + " /usr/lib/grub-customizer/grubcfg-proxy /usr/local/lib/grub-customizer/grubcfg-proxy ; do\n"
+						"    if [ -x \"$proxy\" ] ; then\n"
+						"        cat | \"$proxy\" \"$@\"\n"
+						"        exit $?\n"
+						"    fi\n"
+						"done\n"
+						"echo \"grub-customizer: grubcfg-proxy not found, menu entries are not customized\" >&2\n"
+						"cat\n";
+					fputs(shim.c_str(), proxyBinTarget);
 					fclose(proxyBinTarget);
 					chmod((this->env->cfg_dir+"/bin/grubcfg_proxy").c_str(), 0755);
 				} else {
@@ -578,6 +576,7 @@ class Model_ListCfg :
 		int i = 0;
 		bool inScript = false;
 		std::string plaintextBuffer = "";
+		int plaintextBlockDepth = 0; // menuentries inside of shell blocks (if … fi) are handled as plaintext
 		int innerCount = 0;
 		double progressbarScriptSpace = 0.7 / this->repository.size();
 		while (!cancelThreadsRequested && (row = Model_Entry_Row(source))){
@@ -595,6 +594,7 @@ class Model_ListCfg :
 					this->proxies.sync_all(true, true, script);
 				}
 				plaintextBuffer = "";
+				plaintextBlockDepth = 0;
 				std::string scriptName = rowText.substr(10, rowText.length()-14);
 				std::string prefix = this->env->cfg_dir_prefix;
 				std::string realScriptName = prefix+scriptName;
@@ -607,13 +607,14 @@ class Model_ListCfg :
 				}
 				this->unlock();
 				if (script){
-					this->send_new_load_progress(0.1 + (progressbarScriptSpace * ++i + (progressbarScriptSpace/10*innerCount)), script->name, i, this->repository.size());
+					++i;
+					this->send_new_load_progress(0.1 + (progressbarScriptSpace * i + (progressbarScriptSpace/10*innerCount)), script->name, i, this->repository.size());
 				}
 				inScript = true;
 			} else if (inScript && rowText.substr(0,8) == ("### END ") && rowText.substr(rowText.length()-4,4) == " ###") {
 				inScript = false;
 				innerCount = 0;
-			} else if (script != nullptr && rowText.substr(0, 10) == "menuentry ") {
+			} else if (script != nullptr && plaintextBlockDepth == 0 && rowText.substr(0, 10) == "menuentry ") {
 				this->lock();
 				if (innerCount < 10) {
 					innerCount++;
@@ -625,7 +626,7 @@ class Model_ListCfg :
 				this->proxies.sync_all(false, false, script);
 				this->unlock();
 				this->send_new_load_progress(0.1 + (progressbarScriptSpace * i + (progressbarScriptSpace/10*innerCount)), script->name, i, this->repository.size());
-			} else if (script != NULL && rowText.substr(0, 8) == "submenu ") {
+			} else if (script != NULL && plaintextBlockDepth == 0 && rowText.substr(0, 8) == "submenu ") {
 				this->lock();
 				auto newEntry = std::make_shared<Model_Entry>(source, row, this->getLogger());
 				script->entries().push_back(newEntry);
@@ -634,6 +635,10 @@ class Model_ListCfg :
 				this->send_new_load_progress(0.1 + (progressbarScriptSpace * i + (progressbarScriptSpace/10*innerCount)), script->name, i, this->repository.size());
 			} else if (inScript) { //Plaintext
 				plaintextBuffer += row.text + "\n";
+				plaintextBlockDepth += Helper::shellBlockDepthDelta(row.text);
+				if (plaintextBlockDepth < 0) {
+					plaintextBlockDepth = 0;
+				}
 			}
 		}
 		this->lock();
@@ -976,6 +981,9 @@ class Model_ListCfg :
 	{
 		FILE* errorLogFile = fopen(this->errorLogFile.c_str(), "r");
 		std::string errorMessage;
+		if (errorLogFile == nullptr) {
+			return errorMessage;
+		}
 		int c;
 		while ((c = fgetc(errorLogFile)) != EOF) {
 			errorMessage += char(c);
@@ -1043,6 +1051,8 @@ class Model_ListCfg :
 						case Model_Entry::SUBMENU:
 							ruleType = Model_Rule::OTHER_ENTRIES_PLACEHOLDER;
 							break;
+						case Model_Entry::SCRIPT_ROOT:
+							break; // script roots are never sub entries
 						}
 						auto newRule = std::make_shared<Model_Rule>(ruleType, std::list<std::string>(), entry->name, true);
 						newRule->dataSource = entry;

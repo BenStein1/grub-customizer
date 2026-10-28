@@ -260,8 +260,8 @@ class View_Gtk_Theme :
 		toolbar.add(tbttAdd);
 		toolbar.add(tbttRemove);
 
-		hpThemeEditor.pack1(vbFiles, Gtk::FILL);
-		hpThemeEditor.pack2(vbEdit, Gtk::FILL, Gtk::EXPAND);
+		hpThemeEditor.pack1(vbFiles, true, true);
+		hpThemeEditor.pack2(vbEdit, true, true);
 
 		vbFiles.pack_start(scrFiles);
 		vbFiles.pack_start(toolbar, Gtk::PACK_SHRINK);
@@ -281,9 +281,9 @@ class View_Gtk_Theme :
 		sizeGroupFooter->add_widget(toolbar);
 		sizeGroupFooter->add_widget(hbFileSelection);
 
-		hpCustomTheme.pack1(frmCustomThemeSettings, Gtk::FILL);
-		hpCustomTheme.pack2(frmCustomThemePreview, Gtk::FILL, Gtk::EXPAND);
-		hpCustomTheme.set_position(200);
+		// the settings column must not shrink below its contents (long font names were cut off)
+		hpCustomTheme.pack1(frmCustomThemeSettings, false, false);
+		hpCustomTheme.pack2(frmCustomThemePreview, true, true);
 
 		frmCustomThemeSettings.add(vbCustomThemeSettings);
 		frmCustomThemePreview.add(vbCustomThemePreview);
@@ -679,86 +679,81 @@ class View_Gtk_Theme :
 
 	public:	void setBackgroundImagePreviewPath(std::string const& menuPicturePath, bool isInGrubDir)
 	{
-		this->redraw(menuPicturePath, isInGrubDir);
-
-		this->event_lock = true;
-		if (menuPicturePath != "") {
-			fcBackgroundImage.set_filename(menuPicturePath);
-		} else {
-			fcBackgroundImage.unselect_all();
-		}
-		this->event_lock = false;
-	}
-
-	public:	void redraw(std::string const& menuPicturePath, bool isInGrubDir, Cairo::RefPtr<Cairo::Context> const* cr = nullptr)
-	{
 		this->event_lock = true;
 		this->backgroundImagePath = menuPicturePath;
 
-		if (menuPicturePath != "" && !drwBackgroundPreview.get_visible()) {
+		// only update the widget state here - painting is done by the draw signal.
+		// Painting directly failed while the preview wasn't realized yet (tab not visible),
+		// so the preview stayed hidden until the window was opened again
+		if (menuPicturePath != "") {
 			drwBackgroundPreview.show();
-		}
-
-		if (menuPicturePath != "" && drwBackgroundPreview.get_window()){ //it's important to check whether there's a gdk window, if not, Gdk::Pixbuf::create_from_file produces a crash!
-			try {
-				Glib::RefPtr<Gdk::Pixbuf> buf = Gdk::Pixbuf::create_from_file(menuPicturePath, drwBackgroundPreview.get_width(), -1, true);
-				if (buf) {
-					Cairo::RefPtr<Cairo::Context> context = cr ? *cr : drwBackgroundPreview.get_window()->create_cairo_context();
-
-					drwBackgroundPreview.show();
-					Gdk::Cairo::set_source_pixbuf(context, buf);
-					context->rectangle(0, 0, buf->get_width(), buf->get_height());
-					context->fill();
-
-					std::list<Glib::RefPtr<Pango::Layout> > exampleTexts;
-					Pango::Color fg_n = this->gccNormalForeground.getSelectedColorAsPangoObject();
-					Pango::Color bg_n = this->gccNormalBackground.getSelectedColorAsPangoObject();
-					Pango::Color fg_s = this->gccHighlightForeground.getSelectedColorAsPangoObject();
-					Pango::Color bg_s = this->gccHighlightBackground.getSelectedColorAsPangoObject();
-					std::string fontName = bttFont.get_font_name();
-					this->previewEntryTitles_mutex.lock();
-					for (std::list<std::string>::iterator iter = this->previewEntryTitles.begin(); iter != this->previewEntryTitles.end(); iter++) {
-						if (iter == this->previewEntryTitles.begin()) {
-							exampleTexts.push_back(View_Gtk_Theme::createFormattedText(context, *iter, fontName, fg_s.get_red() / 255, fg_s.get_green() / 255, fg_s.get_blue() / 255, bg_s.get_red() / 255, bg_s.get_green() / 255, bg_s.get_blue() / 255));
-						} else {
-							exampleTexts.push_back(View_Gtk_Theme::createFormattedText(context, *iter, fontName, fg_n.get_red() / 255, fg_n.get_green() / 255, fg_n.get_blue() / 255, bg_n.get_red() / 255, bg_n.get_green() / 255, bg_n.get_blue() / 255));
-						}
-					}
-					this->previewEntryTitles_mutex.unlock();
-
-					int vpos = 0;
-					for (std::list<Glib::RefPtr<Pango::Layout> >::iterator iter = exampleTexts.begin(); iter != exampleTexts.end(); iter++) {
-						context->move_to(0, vpos);
-						(*iter)->show_in_cairo_context(context);
-						vpos += (*iter)->get_height();
-						int x,y;
-						(*iter)->get_pixel_size(x,y);
-						vpos += y;
-					}
-				} else {
-					throw Glib::Error();
-				}
-			} catch (Glib::Error const& e){
-				Cairo::RefPtr<Cairo::Context> context = cr ? *cr : drwBackgroundPreview.get_window()->create_cairo_context();
-				Glib::RefPtr<Gdk::Pixbuf> buf = drwBackgroundPreview.render_icon_pixbuf(Gtk::Stock::MISSING_IMAGE, Gtk::ICON_SIZE_DIALOG);
-
-				Gdk::Cairo::set_source_pixbuf(context, buf);
-				context->rectangle(0, 0, buf->get_width(), buf->get_height());
-				context->fill();
-			}
-
 			bttRemoveBackground.show();
 			imgRemoveBackground.show();
 			lblBackgroundRequiredInfo.hide();
+			fcBackgroundImage.set_filename(menuPicturePath);
 		} else {
 			bttRemoveBackground.hide();
 			imgRemoveBackground.hide();
 			drwBackgroundPreview.hide();
 			lblBackgroundRequiredInfo.show();
+			fcBackgroundImage.unselect_all();
 		}
-
 		bttCopyBackground.set_sensitive(!isInGrubDir);
+		drwBackgroundPreview.queue_draw();
+
 		this->event_lock = false;
+	}
+
+	private: void paintPreview(Cairo::RefPtr<Cairo::Context> const& cr)
+	{
+		if (this->backgroundImagePath == "" || drwBackgroundPreview.get_width() <= 1) {
+			return; // nothing to show or not allocated yet - the draw signal is emitted again later
+		}
+		try {
+			Glib::RefPtr<Gdk::Pixbuf> buf = Gdk::Pixbuf::create_from_file(this->backgroundImagePath, drwBackgroundPreview.get_width(), -1, true);
+			if (buf) {
+				Cairo::RefPtr<Cairo::Context> context = cr;
+
+				Gdk::Cairo::set_source_pixbuf(context, buf);
+				context->rectangle(0, 0, buf->get_width(), buf->get_height());
+				context->fill();
+
+				std::list<Glib::RefPtr<Pango::Layout> > exampleTexts;
+				Pango::Color fg_n = this->gccNormalForeground.getSelectedColorAsPangoObject();
+				Pango::Color bg_n = this->gccNormalBackground.getSelectedColorAsPangoObject();
+				Pango::Color fg_s = this->gccHighlightForeground.getSelectedColorAsPangoObject();
+				Pango::Color bg_s = this->gccHighlightBackground.getSelectedColorAsPangoObject();
+				std::string fontName = bttFont.get_font_name();
+				this->previewEntryTitles_mutex.lock();
+				for (std::list<std::string>::iterator iter = this->previewEntryTitles.begin(); iter != this->previewEntryTitles.end(); iter++) {
+					if (iter == this->previewEntryTitles.begin()) {
+						exampleTexts.push_back(View_Gtk_Theme::createFormattedText(context, *iter, fontName, fg_s.get_red() / 255, fg_s.get_green() / 255, fg_s.get_blue() / 255, bg_s.get_red() / 255, bg_s.get_green() / 255, bg_s.get_blue() / 255));
+					} else {
+						exampleTexts.push_back(View_Gtk_Theme::createFormattedText(context, *iter, fontName, fg_n.get_red() / 255, fg_n.get_green() / 255, fg_n.get_blue() / 255, bg_n.get_red() / 255, bg_n.get_green() / 255, bg_n.get_blue() / 255));
+					}
+				}
+				this->previewEntryTitles_mutex.unlock();
+
+				int vpos = 0;
+				for (std::list<Glib::RefPtr<Pango::Layout> >::iterator iter = exampleTexts.begin(); iter != exampleTexts.end(); iter++) {
+					context->move_to(0, vpos);
+					(*iter)->show_in_cairo_context(context);
+					vpos += (*iter)->get_height();
+					int x,y;
+					(*iter)->get_pixel_size(x,y);
+					vpos += y;
+				}
+			} else {
+				throw Glib::Error();
+			}
+		} catch (Glib::Error const& e){
+			Cairo::RefPtr<Cairo::Context> context = cr;
+			Glib::RefPtr<Gdk::Pixbuf> buf = drwBackgroundPreview.render_icon_pixbuf(Gtk::Stock::MISSING_IMAGE, Gtk::ICON_SIZE_DIALOG);
+
+			Gdk::Cairo::set_source_pixbuf(context, buf);
+			context->rectangle(0, 0, buf->get_width(), buf->get_height());
+			context->fill();
+		}
 	}
 
 	public:	std::string getBackgroundImagePath()
@@ -963,9 +958,7 @@ class View_Gtk_Theme :
 
 	private: bool signal_redraw_preview(const Cairo::RefPtr<Cairo::Context>& cr)
 	{
-		if (!event_lock) {
-			this->redraw(this->backgroundImagePath, false, &cr);
-		}
+		this->paintPreview(cr);
 		return true;
 	}
 

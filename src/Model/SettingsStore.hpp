@@ -36,6 +36,11 @@ struct Model_SettingsStore_Row {
 
 	std::string name, value, comment, plaintext;
 	bool hasExportPrefix, isActive, isSetting;
+
+	// state after loading - used to write unchanged rows back exactly like they were
+	std::string loadedName, loadedValue;
+	bool loadedIsActive = false, loadedHasExportPrefix = false;
+
 	void validate() {
 		isActive = false;
 		hasExportPrefix = false;
@@ -64,12 +69,47 @@ struct Model_SettingsStore_Row {
 			name = "";
 			value = "";
 		}
+		loadedName = name;
+		loadedValue = value;
+		loadedIsActive = isActive;
+		loadedHasExportPrefix = hasExportPrefix;
+	}
+
+	bool isUnchanged() const {
+		return name == loadedName && value == loadedValue && isActive == loadedIsActive && hasExportPrefix == loadedHasExportPrefix;
+	}
+
+	/**
+	 * values are stored in the form they have between double quotes.
+	 * Escapes double quotes which aren't escaped yet and a trailing backslash
+	 * so the generated line is always valid shell code.
+	 */
+	static std::string escapeForDoubleQuotes(std::string const& value) {
+		std::string result;
+		for (size_t i = 0; i < value.length(); i++) {
+			if (value[i] == '\\') {
+				if (i + 1 < value.length()) {
+					result += value[i];
+					result += value[++i];
+				} else {
+					result += "\\\\";
+				}
+			} else if (value[i] == '"') {
+				result += "\\\"";
+			} else {
+				result += value[i];
+			}
+		}
+		return result;
 	}
 
 	std::string getOutput() {
+		if (isSetting && plaintext != "" && isUnchanged()) {
+			return plaintext;
+		}
 		if (isSetting) {
 			if (name != "") {
-				return (isActive ? "" : "#")+std::string(hasExportPrefix ? "export " : "")+name+"=\""+value+"\""+(comment != "" ? " #"+comment : "");
+				return (isActive ? "" : "#")+std::string(hasExportPrefix ? "export " : "")+name+"=\""+escapeForDoubleQuotes(value)+"\""+(comment != "" ? " #"+comment : "");
 			} else {
 				return "#UNNAMED_OPTION=\""+value+"\""; //unnamed options would destroy the grub confuguration
 			}
@@ -211,21 +251,36 @@ public:
 			}
 			else {
 				settings.back().plaintext += c;
-				if (c == '"' && (!inQuotes || quoteChar == c)){
+				// values are stored in the form they would have inside of double quotes
+				std::string* target = step == 0 ? &settings.back().name : &settings.back().value;
+				if (inQuotes && quoteChar == '\'') {
+					if (c == '\'') {
+						inQuotes = false;
+					} else {
+						if (step == 1 && (c == '\\' || c == '"' || c == '$' || c == '`')) {
+							*target += '\\';
+						}
+						*target += c;
+					}
+				} else if (c == '\\') {
+					// keep escape sequences as they are
+					*target += c;
+					int next = fgetc(source);
+					if (next == EOF) {
+						break;
+					}
+					settings.back().plaintext += char(next); // may be a line continuation
+					*target += char(next);
+				} else if (c == '"') {
 					inQuotes = !inQuotes;
 					quoteChar = '"';
-				}
-				else if (c == '\'' && (!inQuotes || quoteChar == c)){
-					inQuotes = !inQuotes;
+				} else if (c == '\'' && !inQuotes) {
+					inQuotes = true;
 					quoteChar = '\'';
-				}
-				else {
-					if (step == 0 && c == '=' && !inQuotes)
-						step = 1;
-					else if (step == 0)
-						settings.back().name += c;
-					else if (step == 1)
-						settings.back().value += c;
+				} else if (step == 0 && c == '=' && !inQuotes) {
+					step = 1;
+				} else {
+					*target += c;
 				}
 			}
 		}

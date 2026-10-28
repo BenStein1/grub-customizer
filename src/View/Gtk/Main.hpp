@@ -556,7 +556,7 @@ class View_Gtk_Main : public View_Main {
 	public: void showProxyNotFoundMessage()
 	{
 		Gtk::MessageDialog msg(gettext("Proxy binary not found!"), false, Gtk::MESSAGE_WARNING);
-		msg.set_secondary_text(gettext("You will see all entries (uncustomized) when you run grub. This error accurs (in most cases), when you didn't install grub gustomizer currectly."));
+		msg.set_secondary_text(gettext("You will see all entries (uncustomized) when you run grub. This error occurs (in most cases), when you didn't install grub customizer correctly."));
 		msg.run();
 	}
 

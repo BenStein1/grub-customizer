@@ -383,8 +383,8 @@ msgstr ""
 
 #: src/View/Gtk/Main.hpp:551
 msgid ""
-"You will see all entries (uncustomized) when you run grub. This error accurs "
-"(in most cases), when you didn't install grub gustomizer currectly."
+"You will see all entries (uncustomized) when you run grub. This error occurs "
+"(in most cases), when you didn't install grub customizer correctly."
 msgstr "當運行 GRUB 時，會看到所有 (沒有修改過的) 項目。若 grub gustomizer 安裝得不正確，此問題通常都會發生。"
 
 #: src/View/Gtk/Main.hpp:558

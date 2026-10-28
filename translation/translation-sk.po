@@ -392,8 +392,8 @@ msgstr "Binárny súbor proxy nebol nájdený!"
 
 #: src/View/Gtk/Main.hpp:551
 msgid ""
-"You will see all entries (uncustomized) when you run grub. This error accurs "
-"(in most cases), when you didn't install grub gustomizer currectly."
+"You will see all entries (uncustomized) when you run grub. This error occurs "
+"(in most cases), when you didn't install grub customizer correctly."
 msgstr ""
 "Uvidíte všetky položky (neprispôsobené) keď spustíte grub. Táto chyba sa "
 "vyskytuje (vo väčšine prípadov), keď sa Grub Customizer nenainštaloval "

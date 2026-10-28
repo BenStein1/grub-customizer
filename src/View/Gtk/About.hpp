@@ -42,9 +42,7 @@ class View_Gtk_About :
 
 	private: void signal_about_dlg_response(int response_id)
 	{
-		if (Gtk::RESPONSE_CLOSE) {
-			this->hide();
-		}
+		this->hide(); // every response (close button, escape, window close) closes the dialog
 	}
 
 	public: View_Gtk_About() :

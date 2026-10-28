@@ -77,7 +77,8 @@ struct Model_MountTable_Mountpoint {
 	}
 
 	bool isLiveCdFs() {
-		return this->fileSystem == "aufs" | this->fileSystem == "overlayfs";
+		// the kernel reports overlayfs as "overlay"
+		return this->fileSystem == "aufs" || this->fileSystem == "overlay" || this->fileSystem == "overlayfs";
 	}
 
 };

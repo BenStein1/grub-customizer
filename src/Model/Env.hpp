@@ -388,7 +388,7 @@ public:
 			FILE* restoreHowto = fopen((backupDir + "/RESTORE_INSTRUCTIONS").c_str(), "w");
 			fputs("How to restore this backup\n", restoreHowto);
 			fputs("--------------------------\n", restoreHowto);
-			fputs(" * make sure you have root permissions (`gksu nautilus` or `sudo -s` on command line) otherwise you won't be able to copy the files\n", restoreHowto);
+			fputs(" * make sure you have root permissions (for example `sudo -s` on command line) otherwise you won't be able to copy the files\n", restoreHowto);
 			fputs(" * to fix an unbootable configuration, just copy:\n", restoreHowto);
 			fputs(("     * '" + backupDir + "/boot_grub' to '" + this->output_config_dir + "'\n").c_str(), restoreHowto);
 			fputs(" * to reset the whole configuration (if it cannot be fixed by using grub customizer), also copy these files:\n", restoreHowto);

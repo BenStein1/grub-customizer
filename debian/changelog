@@ -1,3 +1,19 @@
+grub-customizer (5.2.3-1deepin1) UNRELEASED; urgency=medium
+
+  * Keep menuentries inside if/fi blocks intact (GRUB 2.12 30_uefi-firmware).
+  * Fix the os-prober and show menu settings for GRUB >= 2.06.
+  * Keep the quoting of /etc/default/grub intact.
+  * Reject theme archives with paths outside of the theme directory.
+  * Fix launching as root on Wayland / KDE Plasma 6, use polkit everywhere.
+  * Build with CMake 4.
+  * No fixed file names in /tmp, font and grub.d override fixes.
+  * Fold d/p/010 (PIE is set up by CMake now) and replace d/p/020 with a
+    correct spelling fix including the translations.
+  * Recommend x11-xserver-utils for xhost.
+  * Remove deepin CI configuration.
+
+ -- Ben <19318632+BenStein1@users.noreply.github.com>  Wed, 28 Oct 2026 21:30:00 +0000
+
 grub-customizer (5.2.3-1deepin0) unstable; urgency=medium
 
   * No source change upload against GCC 12.
