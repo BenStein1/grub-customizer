@@ -27,6 +27,8 @@
 #ifndef SCRIPTSOURCEMAP_H_
 #define SCRIPTSOURCEMAP_H_
 
+#include <algorithm>
+#include <list>
 #include <map>
 #include <string>
 #include <dirent.h>
@@ -112,8 +114,8 @@ public:
 		return this->find(sourceName) != this->end();
 	}
 
-	std::string getSourceName(std::string const& destinationName) {
-		for (std::map<std::string, std::string>::iterator iter = this->begin(); iter != this->end(); iter++) {
+	std::string getSourceName(std::string const& destinationName) const {
+		for (std::map<std::string, std::string>::const_iterator iter = this->begin(); iter != this->end(); iter++) {
 			if (iter->second == destinationName) {
 				return iter->first;
 			}
@@ -127,6 +129,14 @@ public:
 
 	std::list<std::string> getUpdates() const {
 		return this->_newSources;
+	}
+
+	bool hasUpdateFor(std::string const& scriptName) const {
+		auto sourceName = this->getSourceName(scriptName);
+		if (sourceName == "") {
+			return false;
+		}
+		return std::find(this->_newSources.begin(), this->_newSources.end(), sourceName) != this->_newSources.end();
 	}
 
 	void deleteUpdates() {

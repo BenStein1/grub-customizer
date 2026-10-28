@@ -850,7 +850,6 @@ class MainController :
 			}
 
 			if (progress == 1 && this->grublistCfg->hasScriptUpdates()) {
-				this->grublistCfg->applyScriptUpdates();
 				this->env->modificationsUnsaved = true;
 				this->view->showScriptUpdateInfo();
 			}

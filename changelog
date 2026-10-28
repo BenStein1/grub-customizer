@@ -1,3 +1,18 @@
+v 5.2.8
+	* fixed another syntax error at ubuntu 26.04 memtest output
+
+v 5.2.7
+	* cmake update
+
+v 5.2.6
+	* fixed syntax error at ubuntu 26.04 memtest output
+
+v 5.2.5
+	* fixed errors with outdated grub2 scripts (wont be executed anymore)
+
+v 5.2.4
+	* fixed empty if statement problem of generated code
+
 v 5.2.3
 	* fixed CRLF problem
 
