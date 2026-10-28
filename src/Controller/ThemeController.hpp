@@ -397,11 +397,11 @@ class ThemeController :
 				std::string tmpFontPath = fullTmpFontPath.substr(this->env->cfg_dir_prefix.size());
 	
 				this->settings->mkFont("", tmpFontPath);
-				this->settings->grubFont = this->settings->parsePf2(fullTmpFontPath)["NAME"];
+				this->settings->grubFont = Model_SettingsManagerData::getDisplayFontName(this->settings->parsePf2(fullTmpFontPath)["NAME"]);
 	
 				// must be done again to check the font returned by parsePf2
 				this->settings->mkFont("", tmpFontPath);
-				this->settings->grubFont = this->settings->parsePf2(fullTmpFontPath)["NAME"];
+				this->settings->grubFont = Model_SettingsManagerData::getDisplayFontName(this->settings->parsePf2(fullTmpFontPath)["NAME"]);
 	
 				// to prevent usage of the temporary font file
 				this->settings->removeItem("GRUB_FONT");

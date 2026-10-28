@@ -31,6 +31,8 @@
 #include <sstream>
 #include "../lib/Helper.hpp"
 #include <map>
+#include <algorithm>
+#include <vector>
 #include <list>
 #include <dirent.h>
 #include "Env.hpp"
@@ -89,21 +91,12 @@ public:
 		return result;
 	}
 
-	static std::string getFontFileByName(std::string const& name) {
+	static std::string readCommandOutput(std::string const& cmd) {
 		std::string result;
-		std::string translatedName = name;
-		int lastWhitespacePos = translatedName.find_last_of(' ');
-		if (lastWhitespacePos != -1) {
-			translatedName[lastWhitespacePos] = ':';
-		}
-		translatedName = Helper::str_replace(" Bold", ":Bold", translatedName);
-		translatedName = Helper::str_replace(" Italic", ":Italic", translatedName);
-		translatedName = Helper::str_replace(" Medium", ":Medium", translatedName);
-		translatedName = Helper::str_replace(" Oblique", ":Oblique", translatedName);
-		translatedName = Helper::str_replace(" Regular", ":Regular", translatedName);
-	
-		std::string cmd = "fc-match -f '%{file[0]}' " + Helper::shellQuote(translatedName);
 		FILE* proc = popen(cmd.c_str(), "r");
+		if (!proc) {
+			return result;
+		}
 		int c;
 		while ((c = getc(proc)) != EOF) {
 			result += char(c);
@@ -111,6 +104,157 @@ public:
 		pclose(proc);
 		return result;
 	}
+
+	// escapes characters with a special meaning in fontconfig patterns
+	static std::string escapeFontconfigValue(std::string const& value) {
+		return Helper::str_escape(value, '\\', "\\-:,");
+	}
+
+	/**
+	 * finds the font file for names like "DejaVu Sans Mono Book 16" (GTK font chooser)
+	 * or "DejaVu Sans Mono Regular 16" (NAME of a pf2 file). The name doesn't say where the
+	 * family name ends and the style begins, so every split is tried with an exact family match.
+	 * Without this, any style except a few hardcoded ones made fc-match fall back to another font.
+	 */
+	/**
+	 * splits a font name into words without the size. grub-mkfont appends its own style (Regular, Bold, Italic,
+	 * Bold Italic) to the family name, so that suffix is removed when the name already contains the style:
+	 * "DejaVu Sans Bold Bold 16" => "DejaVu Sans Bold", "DejaVu Sans Mono Regular 16" => "DejaVu Sans Mono"
+	 */
+	static std::vector<std::string> getNormalizedFontNameWords(std::string const& name) {
+		std::vector<std::string> words;
+		std::istringstream stream(name);
+		std::string word;
+		while (stream >> word) {
+			words.push_back(word);
+		}
+		if (words.size() > 1 && words.back().find_first_not_of("0123456789.") == std::string::npos) {
+			words.pop_back(); // font size
+		}
+		auto contains = [&words](size_t count, std::string const& part) {
+			for (size_t i = 0; i < count; i++) {
+				if (words[i].find(part) != std::string::npos) {
+					return true;
+				}
+			}
+			return false;
+		};
+		bool changed = true;
+		while (changed && words.size() > 1) {
+			changed = false;
+			size_t n = words.size();
+			if (words.back() == "Regular") {
+				words.pop_back();
+				changed = true;
+			} else if (n > 2 && words[n - 2] == "Bold" && words[n - 1] == "Italic" && contains(n - 2, "Bold") && (contains(n - 2, "Italic") || contains(n - 2, "Oblique"))) {
+				words.erase(words.end() - 2, words.end());
+				changed = true;
+			} else if (words.back() == "Bold" && contains(n - 1, "Bold")) {
+				words.pop_back();
+				changed = true;
+			} else if (words.back() == "Italic" && (contains(n - 1, "Italic") || contains(n - 1, "Oblique"))) {
+				words.pop_back();
+				changed = true;
+			}
+		}
+		return words;
+	}
+
+	static std::string getNormalizedFontName(std::string const& name) {
+		std::string result;
+		for (auto const& word : getNormalizedFontNameWords(name)) {
+			result += (result == "" ? "" : " ") + word;
+		}
+		return result;
+	}
+
+	// name of a pf2 font as shown in the font chooser ("DejaVu Sans Bold Bold 16" => "DejaVu Sans Bold 16")
+	static std::string getDisplayFontName(std::string const& pf2Name) {
+		if (pf2Name == "") {
+			return "";
+		}
+		std::string result = getNormalizedFontName(pf2Name);
+		size_t lastSpace = pf2Name.find_last_of(' ');
+		if (lastSpace != std::string::npos && pf2Name.substr(lastSpace + 1).find_first_not_of("0123456789.") == std::string::npos) {
+			result += pf2Name.substr(lastSpace);
+		}
+		return result;
+	}
+
+	static std::string getFontFileByName(std::string const& name) {
+		std::vector<std::string> words = getNormalizedFontNameWords(name);
+
+		for (size_t familyWordCount = words.size(); familyWordCount >= 1; familyWordCount--) {
+			std::string family, style;
+			for (size_t i = 0; i < words.size(); i++) {
+				std::string& target = i < familyWordCount ? family : style;
+				target += (target == "" ? "" : " ") + words[i];
+			}
+			// the regular style has different names (DejaVu: "Book")
+			std::list<std::string> wantedStyles;
+			if (style == "" || style == "Regular" || style == "Book" || style == "Normal" || style == "Roman") {
+				wantedStyles = {"Regular", "Book", "Normal", "Roman"};
+			} else {
+				wantedStyles = {style};
+				// "ExtraBold Bold" (style added by grub-mkfont) => "ExtraBold"
+				size_t lastSpace = style.find_last_of(' ');
+				if (lastSpace != std::string::npos) {
+					wantedStyles.push_back(style.substr(0, lastSpace));
+				}
+			}
+
+			// one line per font: "<style list>|<file>"
+			std::istringstream fonts(readCommandOutput("fc-list --format '%{style}|%{file}\\n' " + Helper::shellQuote(escapeFontconfigValue(family))));
+			std::string line, bestFile, anyFile;
+			int bestRank = 0;
+			while (std::getline(fonts, line)) {
+				size_t separatorPos = line.find('|');
+				if (separatorPos == std::string::npos) {
+					continue;
+				}
+				std::string file = line.substr(separatorPos + 1);
+				std::list<std::string> styles;
+				std::istringstream styleStream(line.substr(0, separatorPos));
+				std::string currentStyle;
+				while (std::getline(styleStream, currentStyle, ',')) {
+					styles.push_back(currentStyle);
+				}
+				// the first style is the most specific one ("Black" vs. "Regular" for "Inter Black")
+				// earlier wanted styles are better, a match of the first style is better than any match
+				int rank = 0;
+				int priority = wantedStyles.size() * 2;
+				for (auto const& wantedStyle : wantedStyles) {
+					if (styles.size() && styles.front() == wantedStyle) {
+						rank = std::max(rank, priority);
+					} else if (std::find(styles.begin(), styles.end(), wantedStyle) != styles.end()) {
+						rank = std::max(rank, priority - 1);
+					}
+					priority -= 2;
+				}
+				if (rank > bestRank) {
+					bestRank = rank;
+					bestFile = file;
+				}
+				if (anyFile == "") {
+					anyFile = file;
+				}
+			}
+			if (bestFile != "") {
+				return bestFile;
+			}
+			if (style == "" && anyFile != "") {
+				return anyFile;
+			}
+		}
+
+		// no exact match: let fontconfig choose the closest font
+		std::string translatedName;
+		for (auto const& w : words) {
+			translatedName += (translatedName == "" ? "" : " ") + w;
+		}
+		return readCommandOutput("fc-match -f '%{file[0]}' " + Helper::shellQuote(escapeFontconfigValue(translatedName)));
+	}
+
 
 	std::string mkFont(std::string fontFile = "", std::string outputPath = "") {
 		int fontSize = -1;
@@ -129,7 +273,12 @@ public:
 			}
 		}
 		outputPath = outputPath != "" ? outputPath : this->env->output_config_dir_noprefix + "/unicode.pf2";
-		std::string cmd = this->env->mkfont_cmd + " --output=" + Helper::shellQuote(outputPath) + sizeParam + " " + Helper::shellQuote(fontFile) + " 2>&1";
+		std::string nameParam;
+		if (this->grubFont != "" && fontSize != -1) {
+			// keep the chosen style (like "Light") in the font name - grub-mkfont would only add Regular/Bold/Italic
+			nameParam = " --name=" + Helper::shellQuote(Model_SettingsManagerData::getNormalizedFontName(this->grubFont));
+		}
+		std::string cmd = this->env->mkfont_cmd + " --output=" + Helper::shellQuote(outputPath) + sizeParam + nameParam + " " + Helper::shellQuote(fontFile) + " 2>&1";
 		this->log("running " + cmd, Logger::INFO);
 		FILE* mkfont_proc = popen(cmd.c_str(), "r");
 		int c;
@@ -219,7 +368,9 @@ public:
 			if (this->getValue("GRUB_FONT") != "") {
 				this->oldFontFile = this->getValue("GRUB_FONT");
 				this->log("parsing " + this->getValue("GRUB_FONT"), Logger::INFO);
-				this->grubFont = Model_SettingsManagerData::parsePf2(this->env->cfg_dir_prefix + this->getValue("GRUB_FONT"))["NAME"];
+				this->grubFont = Model_SettingsManagerData::getDisplayFontName(
+					Model_SettingsManagerData::parsePf2(this->env->cfg_dir_prefix + this->getValue("GRUB_FONT"))["NAME"]
+				);
 				this->log("result " + this->grubFont, Logger::INFO);
 				this->removeItem("GRUB_FONT");
 			}
