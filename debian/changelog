@@ -1,5 +1,7 @@
-grub-customizer (5.2.3-1deepin1) UNRELEASED; urgency=medium
+grub-customizer (5.2.8-1deepin1) UNRELEASED; urgency=medium
 
+  * New upstream release 5.2.8 (empty if statements, outdated grub.d
+    scripts, Ubuntu 26.04 memtest syntax errors, CMake update).
   * Keep menuentries inside if/fi blocks intact (GRUB 2.12 30_uefi-firmware).
   * Fix the os-prober and show menu settings for GRUB >= 2.06.
   * Keep the quoting of /etc/default/grub intact.

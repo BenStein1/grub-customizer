@@ -250,6 +250,19 @@ class Model_ListCfg :
 			repository.deleteAllEntries();
 			this->unlock();
 		}
+
+		// init script source map
+		if (!preserveConfig){
+			//load script map
+			this->scriptSourceMap.load();
+			if (!this->scriptSourceMap.fileExists() && this->getProxifiedScripts().size() > 0) {
+				this->generateScriptSourceMap();
+			}
+			this->populateScriptSourceMap();
+
+			this->applyScriptUpdates();
+		}
+		this->disableOutdatedScripts();
 	
 		//create proxifiedScript links & chmod other files
 		this->log("creating proxifiedScript links & chmodding other files…", Logger::EVENT);
@@ -258,7 +271,9 @@ class Model_ListCfg :
 		for (auto script : this->repository) {
 			if (script->isInScriptDir(env->cfg_dir)){
 				//createScriptForwarder & disable proxies
-				createScriptForwarder(script->fileName);
+				if (! this->scriptSourceMap.hasUpdateFor(script->fileName)) {
+					this->createScriptForwarder(script->fileName);
+				}
 				auto relatedProxies = proxies.getProxiesByScript(script);
 				for (auto proxy : relatedProxies) {
 					int res = chmod(proxy->fileName.c_str(), 0644);
@@ -270,16 +285,6 @@ class Model_ListCfg :
 		}
 		this->unlock();
 		send_new_load_progress(0.1);
-	
-	
-		if (!preserveConfig){
-			//load script map
-			this->scriptSourceMap.load();
-			if (!this->scriptSourceMap.fileExists() && this->getProxifiedScripts().size() > 0) {
-				this->generateScriptSourceMap();
-			}
-			this->populateScriptSourceMap();
-		}
 	
 		//run mkconfig
 		this->log("running " + this->env->mkconfig_cmd, Logger::EVENT);
@@ -310,7 +315,7 @@ class Model_ListCfg :
 		//restore old configuration
 		this->log("restoring grub configuration", Logger::EVENT);
 		this->lock();
-		for (auto script : this->repository){
+		for (auto script : this->repository) {
 			if (script->isInScriptDir(env->cfg_dir)){
 				//removeScriptForwarder & reset proxy permissions
 				bool result = removeScriptForwarder(script->fileName);
@@ -322,6 +327,9 @@ class Model_ListCfg :
 			for (auto proxy : relatedProxies){
 				chmod(proxy->fileName.c_str(), proxy->permissions);
 			}
+		}
+		for (auto script : this->repository.trash) {
+			script->restorePermissions();
 		}
 		this->unlock();
 		
@@ -431,6 +439,7 @@ class Model_ListCfg :
 		send_new_save_progress(0.2);
 	
 		// register in script source map
+		this->scriptSourceMap.deleteUpdates();
 		for (auto scriptFilenameMapItem : scriptFilenameMap) {
 			this->scriptSourceMap.registerMove(scriptFilenameMapItem.second, scriptFilenameMapItem.first->fileName);
 		}
@@ -1185,8 +1194,9 @@ class Model_ListCfg :
 			int pos = -1;
 	
 			if (script->isCustomScript) {
-				defaultPath = this->env->cfg_dir + "/40_custom";
-			} else if (defaultScripts.find(script->name) != defaultScripts.end()) {
+				continue;
+			}
+			if (defaultScripts.find(script->name) != defaultScripts.end()) {
 				pos = defaultScripts[script->name];
 				std::ostringstream str;
 				str << this->env->cfg_dir << "/" << std::setw(2) << std::setfill('0') << pos << "_" << script->name;
@@ -1203,6 +1213,9 @@ class Model_ListCfg :
 	{
 		std::string proxyfiedScriptPath = this->env->cfg_dir + "/proxifiedScripts";
 		for (auto script : this->repository) {
+			if (script->isCustomScript) {
+				continue;
+			}
 			if (script->fileName.substr(0, proxyfiedScriptPath.length()) != proxyfiedScriptPath
 					&& this->scriptSourceMap.getSourceName(script->fileName) == "") {
 				this->scriptSourceMap.addScript(script->fileName);
@@ -1213,6 +1226,27 @@ class Model_ListCfg :
 	public: bool hasScriptUpdates() const
 	{
 		return this->scriptSourceMap.getUpdates().size() > 0;
+	}
+
+	public: void disableOutdatedScripts()
+	{
+		std::list<std::string> newScriptPathes = this->scriptSourceMap.getUpdates();
+		for (auto newScriptPath : newScriptPathes) {
+			std::string oldScriptPath = this->scriptSourceMap[newScriptPath];
+
+			std::shared_ptr<Model_Script> oldScript = nullptr;
+			for (auto script : this->repository.trash) {
+				if (script->fileName == oldScriptPath) {
+					oldScript = script;
+					break;
+				}
+			}
+
+			// disable old scripts on top level to avoid problems on execution
+			if (oldScript && ! oldScript->isInScriptDir(env->cfg_dir)) {
+				oldScript->revokeExecutePermissions();
+			}
+		}
 	}
 
 	public: void applyScriptUpdates()
@@ -1227,31 +1261,16 @@ class Model_ListCfg :
 				continue;
 			}
 	
-			// unsync proxies of newScript
+			// remove auto generated proxies of newScript
 			auto newProxies = this->proxies.getProxiesByScript(newScript);
 			for (auto newProxy : newProxies) {
-				newProxy->unsync();
 				this->proxies.deleteProxy(newProxy);
 			}
 	
-			// copy entries of custom scripts
-			if (oldScript->isCustomScript && newScript->isCustomScript && oldScript->entries().size()) {
-				for (auto entry : oldScript->entries()) {
-					if (entry->type == Model_Entry::PLAINTEXT && newScript->getPlaintextEntry()) {
-						newScript->getPlaintextEntry()->content = entry->content; // copy plaintext instead of adding another entry
-						newScript->getPlaintextEntry()->isModified = true;
-					} else {
-						newScript->entries().push_back(entry);
-						newScript->entries().back()->isModified = true;
-					}
-				}
-			}
-	
-			// connect proxies of oldScript with newScript, resync
+			// connect proxies of oldScript with newScript
 			auto oldProxies = this->proxies.getProxiesByScript(oldScript);
 			for (auto oldProxy : oldProxies) {
 				// connect old proxy to new script
-				oldProxy->unsync();
 				oldProxy->dataSource = newScript;
 				if (oldProxy->fileName == oldScript->fileName) {
 					oldProxy->fileName = newScript->fileName; // set the new fileName
@@ -1268,10 +1287,6 @@ class Model_ListCfg :
 	
 			this->repository.removeScript(oldScript);
 		}
-		this->scriptSourceMap.deleteUpdates();
-	
-		this->proxies.unsync_all();
-		this->proxies.sync_all(true, true, nullptr, this->repository.getScriptPathMap());
 	}
 
 

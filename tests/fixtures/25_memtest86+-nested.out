@@ -1,0 +1,11 @@
+if [ "${grub_platform}" = "efi" ]; then if ! test -e /sys/firmware/efi/fw_platform_size; then
+menuentry 'Memory test (memtest86+x64.efi)' --class memtest $menuentry_id_option 'memtest86+' {
+	insmod part_gpt
+	linux /boot/memtest86+x64.efi
+}
+fi; fi
+if [ "${grub_platform}" = "pc" ]; then if cpuid -l; then
+menuentry 'Memory test (memtest86+x64.bin)' --class memtest $menuentry_id_option 'memtest86+' {
+	linux /boot/memtest86+x64.bin
+}
+fi; fi

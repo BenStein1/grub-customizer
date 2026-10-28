@@ -44,6 +44,7 @@ class Model_Script : public Model_EntryPathFollower, public Trait_LoggerAware, p
 	public: std::string name, fileName;
 	public: bool isCustomScript;
 	public: std::shared_ptr<Model_Entry> root;
+	private: int originalPermissions = -1;
 
 	public: Model_Script(std::string const& name, std::string const& fileName) :
 		name(name),
@@ -282,6 +283,44 @@ class Model_Script : public Model_EntryPathFollower, public Trait_LoggerAware, p
 		}
 		else
 			return false;
+	}
+
+	/**
+	 * temporary removes the execute permissions on file system to ensure the script is not executed when running grub-mkconfig
+	 */
+	public: void revokeExecutePermissions()
+	{
+		if (this->fileName == "") {
+			return;
+		}
+
+		struct stat fileProperties;
+		auto res = stat(this->fileName.c_str(), &fileProperties);
+
+		if (res != 0) {
+			return;
+		}
+
+		this->originalPermissions = fileProperties.st_mode & ~S_IFMT;
+
+		chmod(this->fileName.c_str(), this->originalPermissions & ~0111);
+	}
+
+	/**
+	 * restore the execute permissions on file system after running revokeExecutePermissions
+	 */
+	public: void restorePermissions()
+	{
+		if (this->fileName == "") {
+			return;
+		}
+
+		if (this->originalPermissions == -1) {
+			return;
+		}
+		chmod(this->fileName.c_str(), this->originalPermissions);
+
+		this->originalPermissions = -1;
 	}
 
 	public: operator ArrayStructure() const
