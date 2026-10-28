@@ -281,9 +281,9 @@ class View_Gtk_Theme :
 		sizeGroupFooter->add_widget(toolbar);
 		sizeGroupFooter->add_widget(hbFileSelection);
 
-		hpCustomTheme.pack1(frmCustomThemeSettings, true, true);
+		// the settings column must not shrink below its contents (long font names were cut off)
+		hpCustomTheme.pack1(frmCustomThemeSettings, false, false);
 		hpCustomTheme.pack2(frmCustomThemePreview, true, true);
-		hpCustomTheme.set_position(200);
 
 		frmCustomThemeSettings.add(vbCustomThemeSettings);
 		frmCustomThemePreview.add(vbCustomThemePreview);
