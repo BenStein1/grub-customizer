@@ -27,6 +27,11 @@
  */
 
 #include <iostream>
+#include <vector>
+#include <cstdlib>
+#include <climits>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include "../Bootstrap/View.hpp"
 #include "../Bootstrap/Application.hpp"
@@ -45,6 +50,7 @@
 #include "../lib/Logger/Stream.hpp"
 #include "../Mapper/EntryNameImpl.hpp"
 #include "../config.hpp"
+#include "../lib/Helper.hpp"
 #include "../Controller/AboutController.hpp"
 #include "../Controller/EntryEditController.hpp"
 #include "../Controller/EnvEditorController.hpp"
@@ -57,14 +63,89 @@
 
 
 
+static std::string const WAYLAND_SOCKET_PARAM = "--wayland-socket=";
+
+/**
+ * restarts Grub Customizer as root using pkexec. pkexec only passes DISPLAY and XAUTHORITY
+ * (see allow_gui in the polkit policy), so the root process normally runs on X11/Xwayland.
+ * If there's no X server (wayland session without Xwayland) the wayland socket is passed instead.
+ */
+static int runAsRoot(int argc, char** argv)
+{
+	// pkexec matches the policy by the absolute path of the binary
+	std::string binary = argv[0];
+	char* exePath = realpath("/proc/self/exe", nullptr);
+	if (exePath) {
+		binary = exePath;
+		free(exePath);
+	}
+
+	char const* display = getenv("DISPLAY");
+	char const* waylandDisplay = getenv("WAYLAND_DISPLAY");
+	char const* runtimeDir = getenv("XDG_RUNTIME_DIR");
+	bool useX = display != nullptr && std::string(display) != "";
+
+	std::string cmd = "pkexec " + Helper::shellQuote(binary);
+	for (int i = 1; i < argc; i++) {
+		cmd += " " + Helper::shellQuote(argv[i]);
+	}
+	if (!useX && waylandDisplay != nullptr && std::string(waylandDisplay) != "") {
+		std::string socket = waylandDisplay;
+		if (socket[0] != '/' && runtimeDir != nullptr) {
+			socket = std::string(runtimeDir) + "/" + socket;
+		}
+		cmd += " " + Helper::shellQuote(WAYLAND_SOCKET_PARAM + socket);
+	}
+	cmd += " no-fork";
+
+	if (useX) {
+		// allow root to connect to the (X)Wayland server. xhost is optional - pkexec also passes XAUTHORITY
+		cmd = "if command -v xhost >/dev/null 2>&1; then xhost +SI:localuser:root >/dev/null; fi; "
+			+ cmd + "; status=$?; "
+			"if command -v xhost >/dev/null 2>&1; then xhost -SI:localuser:root >/dev/null; fi; "
+			"exit $status";
+	}
+
+	int status = system(cmd.c_str());
+	if (status == -1 || !WIFEXITED(status)) {
+		return 1;
+	}
+	return WEXITSTATUS(status);
+}
+
 int main(int argc, char** argv){
 	if (argc == 2 && (std::string(argv[1]) == "-v" || std::string(argv[1]) == "--version")) {
 		std::cout << "Grub Customizer, version " << GC_VERSION << std::endl;
 		return 0;
 	}
 
-	if (getuid() != 0 && (argc == 1 || argv[1] != std::string("no-fork"))) {
-		return system((std::string("xhost +SI:localuser:root; pkexec ") + argv[0] + (argc == 2 ? std::string(" ") + argv[1] : "") + " no-fork; xhost -SI:localuser:root").c_str());
+	if (getuid() != 0 && (argc == 1 || argv[argc - 1] != std::string("no-fork"))) {
+		return runAsRoot(argc, argv);
+	}
+
+	// remove internal parameters
+	std::vector<char*> params;
+	for (int i = 0; i < argc; i++) {
+		std::string param = argv[i];
+		if (i != 0 && param.substr(0, WAYLAND_SOCKET_PARAM.length()) == WAYLAND_SOCKET_PARAM) {
+			if (getenv("DISPLAY") == nullptr || std::string(getenv("DISPLAY")) == "") {
+				setenv("WAYLAND_DISPLAY", param.substr(WAYLAND_SOCKET_PARAM.length()).c_str(), 1);
+			}
+			continue;
+		}
+		if (i != 0 && param == "no-fork") {
+			continue;
+		}
+		params.push_back(argv[i]);
+	}
+	params.push_back(nullptr);
+	argc = params.size() - 1;
+	argv = params.data();
+
+	if ((getenv("DISPLAY") == nullptr || std::string(getenv("DISPLAY")) == "") && (getenv("WAYLAND_DISPLAY") == nullptr || std::string(getenv("WAYLAND_DISPLAY")) == "")) {
+		std::cerr << "Grub Customizer: no display found. Please start grub-customizer as a normal user "
+			"(without sudo) - it will ask for the password using polkit." << std::endl;
+		return 1;
 	}
 	setlocale(LC_ALL, "");
 	bindtextdomain("grub-customizer", LOCALEDIR);

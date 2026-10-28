@@ -21,6 +21,8 @@ Depends:
  pkexec,
  ${misc:Depends},
  ${shlibs:Depends},
+Recommends:
+ x11-xserver-utils,
 Enhances:
  grub-efi,
  grub-legacy,

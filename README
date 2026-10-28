@@ -4,7 +4,8 @@ Make sure your grub2 contains the grub-mkconfig script (included since version 1
 
 # step one: Install these packages:
 
- * cmake
+ * cmake (3.14 or newer, CMake 4 is supported)
+
  * g++ OR gcc-c++
  * libgtkmm-3.0-dev OR gtkmm30-devel [when using the gtk-2 version you need libgtkmm-2.4-dev OR gtkmm24-devel]
  * gettext
@@ -22,9 +23,9 @@ download the tar.gz-package here: https://launchpad.net/grub-customizer/+downloa
 
 Go into the source directory extracted from the tar.gz file, then run
 
-$ cmake . && make
+$ cmake -S . -B build && cmake --build build
 
-If you get a cmake version error, try to set the "cmake_minimum_required" value to your installed version - I only written down the lowest tested version, so older versions may be compatible too.
+To run the tests: `ctest --test-dir build` (uses grub-script-check if it's installed).
 
 # step four: install some (optional) runtime dependencies:
 
@@ -32,9 +33,11 @@ If you get a cmake version error, try to set the "cmake_minimum_required" value 
 
 # step five: install Grub Customizer
 
-$ sudo make install
+$ sudo cmake --install build
 
-Then you can start Grub Customizer using the menu or by running `gksu grub-customizer` / `sudo grub-customizer`
+Then you can start Grub Customizer using the menu or by running `grub-customizer` as your normal user. It asks for the administrator password using polkit (pkexec), so a polkit authentication agent must be running (every major desktop, including KDE Plasma and GNOME, ships one). Don't start it with sudo: sudo doesn't pass the display to the program on all systems (for example sudo-rs on Ubuntu 25.10).
+
+On Wayland desktops the root process uses Xwayland. `xhost` (package x11-xserver-utils) is recommended. If no X server is available, the Wayland socket is used instead.
 
 On some distributions, this may fail ("bootloader not found"), because some of the commands / directories doesn't exist on the expected names. Please make sure, these commands are accessible:
 
