@@ -283,7 +283,8 @@ class Model_ListCfg :
 	
 		//run mkconfig
 		this->log("running " + this->env->mkconfig_cmd, Logger::EVENT);
-		FILE* mkconfigProc = popen((this->env->mkconfig_cmd + " 2> " + this->errorLogFile).c_str(), "r");
+		Helper::createPrivateParentDir(this->errorLogFile);
+		FILE* mkconfigProc = popen((this->env->mkconfig_cmd + " 2> " + Helper::shellQuote(this->errorLogFile)).c_str(), "r");
 		readGeneratedFile(mkconfigProc);
 		
 		int success = pclose(mkconfigProc);
@@ -983,6 +984,9 @@ class Model_ListCfg :
 	{
 		FILE* errorLogFile = fopen(this->errorLogFile.c_str(), "r");
 		std::string errorMessage;
+		if (errorLogFile == nullptr) {
+			return errorMessage;
+		}
 		int c;
 		while ((c = fgetc(errorLogFile)) != EOF) {
 			errorMessage += char(c);

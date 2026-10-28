@@ -99,6 +99,8 @@ public:
 	virtual bool getOsProberCheckboxState()=0;
 	//shows the information about a conflict between os-prober and hidden menus
 	virtual void showHiddenMenuOsProberConflictMessage()=0;
+	//shows which settings are overridden by files in /etc/default/grub.d
+	virtual void showOverriddenSettingsMessage(std::string const& overriddenSettings)=0;
 	//sets the grub menu timeout
 	virtual void setTimeoutValue(int value)=0;
 	//sets weather the grub menu timeout is active

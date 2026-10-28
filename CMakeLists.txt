@@ -38,7 +38,7 @@ endif()
 
 if ( ERROR_LOG_FILE )
 else()
-set ( ERROR_LOG_FILE /tmp/grub-customizer_mkconfig_output.log )
+set ( ERROR_LOG_FILE /run/grub-customizer/mkconfig_output.log )
 endif()
 
 

@@ -391,17 +391,22 @@ class ThemeController :
 			this->settings->grubFontSize = fontSize;
 	
 			if (fontName != "") {
-				std::string fullTmpFontPath = this->env->cfg_dir_prefix + "/tmp/grub_customizer_chosen_font_test.pf2";
+				// the font is generated inside of the target system (may be a chroot)
+				std::string tmpDir = Helper::createTempDir(this->env->cfg_dir_prefix + "/tmp");
+				std::string fullTmpFontPath = tmpDir + "/chosen_font_test.pf2";
+				std::string tmpFontPath = fullTmpFontPath.substr(this->env->cfg_dir_prefix.size());
 	
-				this->settings->mkFont("", "/tmp/grub_customizer_chosen_font_test.pf2");
+				this->settings->mkFont("", tmpFontPath);
 				this->settings->grubFont = this->settings->parsePf2(fullTmpFontPath)["NAME"];
 	
 				// must be done again to check the font returned by parsePf2
-				this->settings->mkFont("", "/tmp/grub_customizer_chosen_font_test.pf2");
+				this->settings->mkFont("", tmpFontPath);
 				this->settings->grubFont = this->settings->parsePf2(fullTmpFontPath)["NAME"];
 	
 				// to prevent usage of the temporary font file
 				this->settings->removeItem("GRUB_FONT");
+				remove(fullTmpFontPath.c_str());
+				rmdir(tmpDir.c_str());
 			}
 	
 			this->syncSettings();

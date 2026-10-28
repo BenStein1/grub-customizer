@@ -32,6 +32,7 @@
 #include <dirent.h>
 #include <fstream>
 #include "../lib/Exception.hpp"
+#include "../lib/Helper.hpp"
 #include <archive.h>
 #include <archive_entry.h>
 #include <map>
@@ -145,13 +146,18 @@ struct Model_Theme {
 			return this->directory + "/" + localFileName;
 		} else {
 			std::string fileContent = this->loadFileContentFromZip(localFileName);
-			FILE* file = fopen("/tmp/grub-customizer_theme_preview", "w");
+			static std::string previewDir;
+			if (previewDir == "") {
+				previewDir = Helper::createTempDir();
+			}
+			std::string previewFile = previewDir + "/theme_preview";
+			FILE* file = fopen(previewFile.c_str(), "w");
 			if (!file) {
 				throw FileSaveException("cannot write preview file to " + localFileName, __FILE__, __LINE__);
 			}
 			fwrite(fileContent.c_str(), fileContent.size(), 1, file);
 			fclose(file);
-			return "/tmp/grub-customizer_theme_preview";
+			return previewFile;
 		}
 	}
 

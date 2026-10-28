@@ -471,6 +471,13 @@ class View_Gtk_Settings :
 		Gtk::MessageDialog(Glib::ustring::compose(gettext("This option doesn't work when the \"os-prober\" script finds other operating systems. Disable \"%1\" if you don't need to boot other operating systems."), chkOsProber.get_label())).run();
 	}
 
+	public: void showOverriddenSettingsMessage(std::string const& overriddenSettings)
+	{
+		Gtk::MessageDialog msg(gettext("Some settings are overridden"), false, Gtk::MESSAGE_WARNING);
+		msg.set_secondary_text(Glib::ustring::compose(gettext("These settings are also set in /etc/default/grub.d. Those files are read after /etc/default/grub, so changes made here may have no effect:\n\n%1"), overriddenSettings));
+		msg.run();
+	}
+
 	public: void setTimeoutValue(int value)
 	{
 		this->event_lock = true;

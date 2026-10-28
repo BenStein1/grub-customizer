@@ -67,6 +67,7 @@ class SettingsController :
 	public Bootstrap_Application_Object_Connection
 {
 	private: bool syncActive; // should only be controlled by syncSettings()
+	private: bool overriddenSettingsWarningShown = false;
 
 	public:	Model_FbResolutionsGetter& getFbResolutionsGetter()
 	{
@@ -420,6 +421,16 @@ class SettingsController :
 		this->logActionBegin("show");
 		try {
 			this->view->show();
+			if (!this->overriddenSettingsWarningShown) {
+				this->overriddenSettingsWarningShown = true;
+				std::string overriddenSettings;
+				for (auto const& setting : this->settings->getOverriddenSettings()) {
+					overriddenSettings += setting.first + " (" + setting.second + ")\n";
+				}
+				if (overriddenSettings != "") {
+					this->view->showOverriddenSettingsMessage(overriddenSettings);
+				}
+			}
 		} catch (Exception const& e) {
 			this->applicationObject->onError.exec(e);
 		}

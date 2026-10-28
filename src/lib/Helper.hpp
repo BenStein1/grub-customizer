@@ -29,9 +29,13 @@
 #define HELPER_H_INCLUDED
 
 #include <cstdio>
+#include <cstdlib>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <openssl/evp.h>
 #include <string>
 #include <map>
+#include <vector>
 #include "Exception.hpp"
 
 # define ASSERT_VOID_CAST static_cast<void>
@@ -87,6 +91,33 @@ class Helper {
 			pos += replace.length();
 		}
 		return subject;
+	}
+
+	/**
+	 * creates a new private (0700) directory with a random name.
+	 * Must be used instead of fixed file names in /tmp because Grub Customizer runs as root.
+	 */
+	public: static std::string createTempDir(std::string const& baseDir = "/tmp") {
+		std::string pattern = baseDir + "/grub-customizer-XXXXXX";
+		std::vector<char> buffer(pattern.begin(), pattern.end());
+		buffer.push_back('\0');
+		if (mkdtemp(buffer.data()) == nullptr) {
+			throw FileSaveException("cannot create temporary directory in " + baseDir, __FILE__, __LINE__);
+		}
+		return std::string(buffer.data());
+	}
+
+	// creates the parent directory of the given file (mode 0700) if it doesn't exist yet
+	public: static void createPrivateParentDir(std::string const& filePath) {
+		size_t slashPos = filePath.find_last_of('/');
+		if (slashPos == std::string::npos || slashPos == 0) {
+			return;
+		}
+		std::string dir = filePath.substr(0, slashPos);
+		struct stat dirInfo;
+		if (lstat(dir.c_str(), &dirInfo) != 0) {
+			mkdir(dir.c_str(), 0700);
+		}
 	}
 
 	// wraps the given string into single quotes so it can be passed to /bin/sh as one word
