@@ -97,7 +97,11 @@ struct Model_Theme {
 		}
 		while (archive_read_next_header(a, &entry) == ARCHIVE_OK) {
 			std::string path = archive_entry_pathname(entry);
-			if (path.size() && path[path.size() - 1] != '/') {
+			if (!Model_Theme::isSafeRelativePath(path)) {
+				archive_read_free(a);
+				throw InvalidFileTypeException("archive contains an unsafe path: " + path, __FILE__, __LINE__);
+			}
+			if (path.size() && path[path.size() - 1] != '/' && archive_entry_filetype(entry) == AE_IFREG) {
 				this->files.push_back(path);
 			}
 			archive_read_data_skip(a);
@@ -180,6 +184,14 @@ struct Model_Theme {
 	}
 
 	void save(std::string const& baseDirectory) {
+		if (!Model_Theme::isSafeRelativePath(this->name) || this->name.find('/') != std::string::npos) {
+			throw InvalidStringFormatException("invalid theme name: " + this->name, __FILE__, __LINE__);
+		}
+		for (auto const& file : this->files) {
+			if (!Model_Theme::isSafeRelativePath(file.newLocalFileName)) {
+				throw InvalidStringFormatException("invalid theme file name: " + file.newLocalFileName, __FILE__, __LINE__);
+			}
+		}
 		std::string sourceThemeDir = baseDirectory + "/" + this->name;
 		std::string destThemeDir = baseDirectory + "/" + this->name + ".__new";
 		mkdir(destThemeDir.c_str(), 0755);
@@ -299,6 +311,28 @@ private:
 			throw InvalidFileTypeException("archive not readable", __FILE__, __LINE__);
 		}
 		return result;
+	}
+
+	/**
+	 * theme files are written as root - make sure archive entries
+	 * cannot escape the theme directory ("zip slip")
+	 */
+	static bool isSafeRelativePath(std::string const& path) {
+		if (path == "" || path[0] == '/' || path.find('\0') != std::string::npos) {
+			return false;
+		}
+		size_t start = 0;
+		while (start <= path.length()) {
+			size_t end = path.find('/', start);
+			if (end == std::string::npos) {
+				end = path.length();
+			}
+			if (path.substr(start, end - start) == "..") {
+				return false;
+			}
+			start = end + 1;
+		}
+		return true;
 	}
 
 	void writeFile(Model_ThemeFile& file, std::string const& path) {
