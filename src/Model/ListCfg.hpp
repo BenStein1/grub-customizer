@@ -578,6 +578,7 @@ class Model_ListCfg :
 		int i = 0;
 		bool inScript = false;
 		std::string plaintextBuffer = "";
+		int plaintextBlockDepth = 0; // menuentries inside of shell blocks (if … fi) are handled as plaintext
 		int innerCount = 0;
 		double progressbarScriptSpace = 0.7 / this->repository.size();
 		while (!cancelThreadsRequested && (row = Model_Entry_Row(source))){
@@ -595,6 +596,7 @@ class Model_ListCfg :
 					this->proxies.sync_all(true, true, script);
 				}
 				plaintextBuffer = "";
+				plaintextBlockDepth = 0;
 				std::string scriptName = rowText.substr(10, rowText.length()-14);
 				std::string prefix = this->env->cfg_dir_prefix;
 				std::string realScriptName = prefix+scriptName;
@@ -607,13 +609,14 @@ class Model_ListCfg :
 				}
 				this->unlock();
 				if (script){
-					this->send_new_load_progress(0.1 + (progressbarScriptSpace * ++i + (progressbarScriptSpace/10*innerCount)), script->name, i, this->repository.size());
+					++i;
+					this->send_new_load_progress(0.1 + (progressbarScriptSpace * i + (progressbarScriptSpace/10*innerCount)), script->name, i, this->repository.size());
 				}
 				inScript = true;
 			} else if (inScript && rowText.substr(0,8) == ("### END ") && rowText.substr(rowText.length()-4,4) == " ###") {
 				inScript = false;
 				innerCount = 0;
-			} else if (script != nullptr && rowText.substr(0, 10) == "menuentry ") {
+			} else if (script != nullptr && plaintextBlockDepth == 0 && rowText.substr(0, 10) == "menuentry ") {
 				this->lock();
 				if (innerCount < 10) {
 					innerCount++;
@@ -625,7 +628,7 @@ class Model_ListCfg :
 				this->proxies.sync_all(false, false, script);
 				this->unlock();
 				this->send_new_load_progress(0.1 + (progressbarScriptSpace * i + (progressbarScriptSpace/10*innerCount)), script->name, i, this->repository.size());
-			} else if (script != NULL && rowText.substr(0, 8) == "submenu ") {
+			} else if (script != NULL && plaintextBlockDepth == 0 && rowText.substr(0, 8) == "submenu ") {
 				this->lock();
 				auto newEntry = std::make_shared<Model_Entry>(source, row, this->getLogger());
 				script->entries().push_back(newEntry);
@@ -634,6 +637,10 @@ class Model_ListCfg :
 				this->send_new_load_progress(0.1 + (progressbarScriptSpace * i + (progressbarScriptSpace/10*innerCount)), script->name, i, this->repository.size());
 			} else if (inScript) { //Plaintext
 				plaintextBuffer += row.text + "\n";
+				plaintextBlockDepth += Helper::shellBlockDepthDelta(row.text);
+				if (plaintextBlockDepth < 0) {
+					plaintextBlockDepth = 0;
+				}
 			}
 		}
 		this->lock();

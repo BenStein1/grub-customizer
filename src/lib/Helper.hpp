@@ -29,7 +29,7 @@
 #define HELPER_H_INCLUDED
 
 #include <cstdio>
-#include <openssl/md5.h>
+#include <openssl/evp.h>
 #include <string>
 #include <map>
 #include "Exception.hpp"
@@ -55,12 +55,11 @@ class Helper {
 	}
 
 	public: static std::string md5(std::string const& input) {
-		unsigned char buf[16];
-		unsigned char* cStr = new unsigned char[input.length() + 1];
-		for (int i = 0; i < input.length(); i++) {
-			cStr[i] = static_cast<unsigned char>(input[i]);
+		unsigned char buf[EVP_MAX_MD_SIZE];
+		unsigned int bufLength = 0;
+		if (EVP_Digest(input.data(), input.length(), buf, &bufLength, EVP_md5(), nullptr) != 1 || bufLength != 16) {
+			throw LogicException("md5 calculation failed", __FILE__, __LINE__);
 		}
-		MD5(cStr, input.length(), buf);
 
 		std::string result;
 		for (int i = 0; i < 16; i++) {
@@ -88,6 +87,81 @@ class Helper {
 			pos += replace.length();
 		}
 		return subject;
+	}
+
+	// wraps the given string into single quotes so it can be passed to /bin/sh as one word
+	public: static std::string shellQuote(std::string const& input) {
+		return "'" + str_replace("'", "'\\''", input) + "'";
+	}
+
+	/**
+	 * calculates how a line of shell / grub script changes the nesting level of
+	 * if/fi, for/while/until/done and case/esac blocks
+	 */
+	public: static int shellBlockDepthDelta(std::string const& line) {
+		int delta = 0;
+		bool commandPosition = true;
+		std::string word;
+		char quote = 0;
+		for (size_t i = 0; i <= line.length(); i++) {
+			char c = i < line.length() ? line[i] : '\n';
+			if (quote) {
+				if (c == quote) {
+					quote = 0;
+				} else if (c == '\\' && quote == '"') {
+					i++;
+				}
+				continue;
+			}
+			if (c == '\'' || c == '"') {
+				quote = c;
+				word += c;
+				continue;
+			}
+			if (c == '\\') {
+				word += c;
+				i++;
+				continue;
+			}
+			if (c == '#' && word == "") {
+				break; // comment
+			}
+			bool isSeparator = c == ';' || c == '&' || c == '|' || c == '(' || c == ')' || c == '\n';
+			if (c == ' ' || c == '\t' || isSeparator) {
+				if (word != "") {
+					if (commandPosition) {
+						if (word == "if" || word == "for" || word == "while" || word == "until" || word == "case") {
+							delta++;
+						} else if (word == "fi" || word == "done" || word == "esac") {
+							delta--;
+						}
+					}
+					commandPosition = word == "then" || word == "do" || word == "else" || word == "elif" || word == "!"
+						|| word == "if" || word == "while" || word == "until";
+					word = "";
+				}
+				if (isSeparator) {
+					commandPosition = true;
+				}
+				continue;
+			}
+			word += c;
+		}
+		return delta;
+	}
+
+	public: static int shellBlockDepth(std::string const& script) {
+		int depth = 0;
+		size_t start = 0;
+		while (start < script.length()) {
+			size_t end = script.find('\n', start);
+			if (end == std::string::npos) {
+				end = script.length();
+			}
+			depth += shellBlockDepthDelta(script.substr(start, end - start));
+			start = end + 1;
+		}
+		return depth < 0 ? 0 : depth;
 	}
 
 	public: static std::string escapeXml(std::string const& input) {

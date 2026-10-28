@@ -95,11 +95,19 @@ class Model_Entry : public Trait_LoggerAware, public Entry
 		if (logger) {
 			this->setLogger(logger);
 		}
+		// menuentries wrapped into a shell block (like "if [ "$grub_platform" = "efi" ]; then … fi")
+		// must stay inside of the plaintext. Otherwise the block would be emptied when generating proxies.
+		int blockDepth = plaintextBuffer ? Helper::shellBlockDepth(*plaintextBuffer) : 0;
 		Model_Entry_Row row;
 		while ((row = firstRow) || (row = Model_Entry_Row(sourceFile))){
 			std::string rowText = Helper::ltrim(row.text);
 	
-			if (rowText.substr(0, 10) == "menuentry "){
+			if (blockDepth > 0) {
+				if (plaintextBuffer) {
+					*plaintextBuffer += row.text + "\n";
+				}
+				blockDepth += Helper::shellBlockDepthDelta(row.text);
+			} else if (rowText.substr(0, 10) == "menuentry "){
 				this->readMenuEntry(sourceFile, row);
 				break;
 			} else if (rowText.substr(0, 8) == "submenu ") {
@@ -108,6 +116,7 @@ class Model_Entry : public Trait_LoggerAware, public Entry
 			} else {
 				if (plaintextBuffer) {
 					*plaintextBuffer += row.text + "\n";
+					blockDepth += Helper::shellBlockDepthDelta(row.text);
 				}
 			}
 			firstRow.eof = true; //disable firstRow to read the following config from file

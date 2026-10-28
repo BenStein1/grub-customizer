@@ -1,0 +1,18 @@
+function gfxmode {
+	set gfxpayload="${1}"
+	if [ "${1}" = "keep" ]; then
+		set vt_handoff=vt.handoff=7
+	else
+		set vt_handoff=
+	fi
+}
+if [ "${recordfail}" != 1 ]; then set timeout=1; fi
+menuentry 'Ubuntu' --class ubuntu $menuentry_id_option 'gnulinux-simple' {
+	if [ x$grub_platform = xxen ]; then insmod xzio; fi
+	linux /vmlinuz root=UUID=x ro quiet splash
+}
+submenu 'Advanced options for Ubuntu' $menuentry_id_option 'gnulinux-advanced' {
+	menuentry 'Ubuntu, with Linux 6.17' --class ubuntu {
+		linux /vmlinuz-6.17
+	}
+}
